@@ -15,12 +15,27 @@ pygame.display.set_caption("Snake")
 clock = pygame.time.Clock()
 
 snake = [(15, 10), (14, 10), (13, 10)]
+direction = (1, 0)
 
 running = True
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_UP and direction != (0, 1):
+                direction = (0, -1)
+            if event.key == pygame.K_DOWN and direction != (0, -1):
+                direction = (0, 1)
+            if event.key == pygame.K_LEFT and direction != (1, 0):
+                direction = (-1, 0)
+            if event.key == pygame.K_RIGHT and direction != (-1, 0):
+                direction = (1, 0)
+
+    head_x = snake[0][0] + direction[0]
+    head_y = snake[0][1] + direction[1]
+    snake.insert(0, (head_x, head_y))
+    snake.pop()
 
     screen.fill((30, 30, 30))
 
@@ -32,4 +47,4 @@ while running:
     pygame.display.flip()
     clock.tick(10)
 
-pygame.quit() 
+pygame.quit()
