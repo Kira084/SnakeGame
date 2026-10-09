@@ -8,13 +8,11 @@ pygame.mixer.init()
  
  
 def resource_path(relative_path):
-    # работает и при обычном запуске, и внутри exe
     base = getattr(sys, "_MEIPASS", os.path.abspath("."))
     return os.path.join(base, relative_path)
  
  
 def get_save_path():
-    # рекорд лежит рядом с exe (или рядом с main.py при обычном запуске)
     if getattr(sys, "frozen", False):
         return os.path.join(os.path.dirname(sys.executable), "highscore.txt")
     return "highscore.txt"
