@@ -17,11 +17,22 @@ screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Snake")
 clock = pygame.time.Clock()
 font = pygame.font.SysFont("arial", 24)
+big_font = pygame.font.SysFont("arial", 48)
 
 snake = [(15, 10), (14, 10), (13, 10)]
 direction = (1, 0)
-apple = (random.randint(0, COLS - 1), random.randint(0, ROWS - 1))
 score = 0
+game_over = False
+
+
+def spawn_apple():
+    while True:
+        position = (random.randint(0, COLS - 1), random.randint(0, ROWS - 1))
+        if position not in snake:
+            return position
+
+
+apple = spawn_apple()
 
 running = True
 while running:
@@ -29,34 +40,40 @@ while running:
         if event.type == pygame.QUIT:
             running = False
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP and direction != (0, 1):
-                direction = (0, -1)
-            if event.key == pygame.K_DOWN and direction != (0, -1):
-                direction = (0, 1)
-            if event.key == pygame.K_LEFT and direction != (1, 0):
-                direction = (-1, 0)
-            if event.key == pygame.K_RIGHT and direction != (-1, 0):
-                direction = (1, 0)
+            if game_over:
+                if event.key == pygame.K_SPACE:
+                    snake = [(15, 10), (14, 10), (13, 10)]
+                    direction = (1, 0)
+                    apple = spawn_apple()
+                    score = 0
+                    game_over = False
+            else:
+                if event.key == pygame.K_UP and direction != (0, 1):
+                    direction = (0, -1)
+                if event.key == pygame.K_DOWN and direction != (0, -1):
+                    direction = (0, 1)
+                if event.key == pygame.K_LEFT and direction != (1, 0):
+                    direction = (-1, 0)
+                if event.key == pygame.K_RIGHT and direction != (-1, 0):
+                    direction = (1, 0)
 
-    head_x = snake[0][0] + direction[0]
-    head_y = snake[0][1] + direction[1]
+    if not game_over:
+        head_x = snake[0][0] + direction[0]
+        head_y = snake[0][1] + direction[1]
 
-    hit_wall = head_x < 0 or head_x >= COLS or head_y < 0 or head_y >= ROWS
-    hit_self = (head_x, head_y) in snake
+        hit_wall = head_x < 0 or head_x >= COLS or head_y < 0 or head_y >= ROWS
+        hit_self = (head_x, head_y) in snake
 
-    if hit_wall or hit_self:
-        snake = [(15, 10), (14, 10), (13, 10)]
-        direction = (1, 0)
-        apple = (random.randint(0, COLS - 1), random.randint(0, ROWS - 1))
-        score = 0
-    else:
-        snake.insert(0, (head_x, head_y))
-
-        if snake[0] == apple:
-            apple = (random.randint(0, COLS - 1), random.randint(0, ROWS - 1))
-            score = score + 1
+        if hit_wall or hit_self:
+            game_over = True
         else:
-            snake.pop()
+            snake.insert(0, (head_x, head_y))
+
+            if snake[0] == apple:
+                apple = spawn_apple()
+                score = score + 1
+            else:
+                snake.pop()
 
     screen.fill((30, 30, 30))
 
@@ -71,6 +88,15 @@ while running:
 
     score_text = font.render("Score: " + str(score), True, WHITE)
     screen.blit(score_text, (10, 10))
+
+    if game_over:
+        over_text = big_font.render("Game Over", True, WHITE)
+        over_rect = over_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
+        screen.blit(over_text, over_rect)
+
+        restart_text = font.render("Press SPACE to restart", True, WHITE)
+        restart_rect = restart_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
+        screen.blit(restart_text, restart_rect)
 
     pygame.display.flip()
     clock.tick(10)
