@@ -2,16 +2,17 @@ import pygame
 import random
 
 pygame.init()
+pygame.mixer.init()
 
-CELL_SIZE = 20
-COLS = 30
-ROWS = 20
+CELL_SIZE = 32
+COLS = 25
+ROWS = 18
 WIDTH = COLS * CELL_SIZE
 HEIGHT = ROWS * CELL_SIZE
 
-GREEN = (80, 200, 120)
-RED = (220, 60, 60)
 WHITE = (255, 255, 255)
+BLACK = (0, 0, 0)
+OBSTACLE_COUNT = 8
 
 screen = pygame.display.set_mode((WIDTH, HEIGHT))
 pygame.display.set_caption("Snake")
@@ -19,20 +20,113 @@ clock = pygame.time.Clock()
 font = pygame.font.SysFont("arial", 24)
 big_font = pygame.font.SysFont("arial", 48)
 
-snake = [(15, 10), (14, 10), (13, 10)]
+
+def load_image(theme_name, file_name):
+    image = pygame.image.load("assets/" + theme_name + "/" + file_name).convert_alpha()
+    return pygame.transform.scale(image, (CELL_SIZE, CELL_SIZE))
+
+
+def load_theme(theme_name):
+    images = {}
+    for name in ["head", "head_open", "body1", "body2", "tail", "apple", "golden_apple", "obstacle"]:
+        images[name] = load_image(theme_name, name + ".png")
+    background = pygame.image.load("assets/" + theme_name + "/background.png").convert()
+    images["background"] = pygame.transform.scale(background, (WIDTH, HEIGHT))
+    return images
+
+
+themes = {
+    "normal": load_theme("normal"),
+    "neon": load_theme("neon"),
+}
+music_files = {
+    "normal": "assets/music/pixelland.mp3",
+    "neon": "assets/music/funny_bit.mp3",
+}
+nom_sound = pygame.mixer.Sound("assets/music/nom.mp3")
+
+
+def play_music(theme_name):
+    pygame.mixer.music.load(music_files[theme_name])
+    pygame.mixer.music.set_volume(0.4)
+    pygame.mixer.music.play(-1)
+
+
+def get_angle(dx, dy):
+    if dx == 1:
+        return 0
+    elif dy == -1:
+        return 90
+    elif dx == -1:
+        return 180
+    else:
+        return 270
+
+
+def draw_text(text, text_font, x, y):
+    shadow = text_font.render(text, True, BLACK)
+    label = text_font.render(text, True, WHITE)
+    screen.blit(shadow, (x + 2, y + 2))
+    screen.blit(label, (x, y))
+
+
+def draw_centered(text, text_font, center_y):
+    shadow = text_font.render(text, True, BLACK)
+    label = text_font.render(text, True, WHITE)
+    shadow_rect = shadow.get_rect(center=(WIDTH // 2 + 2, center_y + 2))
+    label_rect = label.get_rect(center=(WIDTH // 2, center_y))
+    screen.blit(shadow, shadow_rect)
+    screen.blit(label, label_rect)
+
+
+def get_free_cell():
+    while True:
+        position = (random.randint(0, COLS - 1), random.randint(0, ROWS - 1))
+        if position in snake or position in obstacles:
+            continue
+        if position == apple or position == golden:
+            continue
+        return position
+
+
+def make_obstacles():
+    result = []
+    while len(result) < OBSTACLE_COUNT:
+        position = (random.randint(0, COLS - 1), random.randint(0, ROWS - 1))
+        near_start = abs(position[0] - 12) <= 5 and abs(position[1] - 9) <= 2
+        if position not in result and not near_start:
+            result.append(position)
+    return result
+
+
+def load_high_score():
+    try:
+        with open("highscore.txt", "r") as file:
+            return int(file.read())
+    except (FileNotFoundError, ValueError):
+        return 0
+
+
+def save_high_score(value):
+    with open("highscore.txt", "w") as file:
+        file.write(str(value))
+
+
+theme = "normal"
+images = themes[theme]
+play_music(theme)
+
+snake = [(12, 9), (11, 9), (10, 9)]
 direction = (1, 0)
 score = 0
 game_over = False
-
-
-def spawn_apple():
-    while True:
-        position = (random.randint(0, COLS - 1), random.randint(0, ROWS - 1))
-        if position not in snake:
-            return position
-
-
-apple = spawn_apple()
+paused = False
+high_score = load_high_score()
+obstacles = make_obstacles()
+apple = None
+golden = None
+golden_steps = 0
+apple = get_free_cell()
 
 running = True
 while running:
@@ -40,14 +134,32 @@ while running:
         if event.type == pygame.QUIT:
             running = False
         if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_t:
+                if theme == "normal":
+                    theme = "neon"
+                else:
+                    theme = "normal"
+                images = themes[theme]
+                play_music(theme)
+                if paused:
+                    pygame.mixer.music.pause()
+
             if game_over:
                 if event.key == pygame.K_SPACE:
-                    snake = [(15, 10), (14, 10), (13, 10)]
+                    snake = [(12, 9), (11, 9), (10, 9)]
                     direction = (1, 0)
-                    apple = spawn_apple()
+                    obstacles = make_obstacles()
+                    golden = None
+                    apple = get_free_cell()
                     score = 0
                     game_over = False
             else:
+                if event.key == pygame.K_p:
+                    paused = not paused
+                    if paused:
+                        pygame.mixer.music.pause()
+                    else:
+                        pygame.mixer.music.unpause()
                 if event.key == pygame.K_UP and direction != (0, 1):
                     direction = (0, -1)
                 if event.key == pygame.K_DOWN and direction != (0, -1):
@@ -57,48 +169,98 @@ while running:
                 if event.key == pygame.K_RIGHT and direction != (-1, 0):
                     direction = (1, 0)
 
-    if not game_over:
+    if not game_over and not paused:
         head_x = snake[0][0] + direction[0]
         head_y = snake[0][1] + direction[1]
 
         hit_wall = head_x < 0 or head_x >= COLS or head_y < 0 or head_y >= ROWS
         hit_self = (head_x, head_y) in snake
+        hit_obstacle = (head_x, head_y) in obstacles
 
-        if hit_wall or hit_self:
+        if hit_wall or hit_self or hit_obstacle:
             game_over = True
+            if score > high_score:
+                high_score = score
+                save_high_score(high_score)
         else:
             snake.insert(0, (head_x, head_y))
 
             if snake[0] == apple:
-                apple = spawn_apple()
+                apple = get_free_cell()
                 score = score + 1
+                nom_sound.play()
+            elif snake[0] == golden:
+                golden = None
+                score = score + 5
+                nom_sound.play()
             else:
                 snake.pop()
 
-    screen.fill((30, 30, 30))
+            if golden is None:
+                if random.randint(1, 80) == 1:
+                    golden = get_free_cell()
+                    golden_steps = 50
+            else:
+                golden_steps = golden_steps - 1
+                if golden_steps <= 0:
+                    golden = None
 
-    for segment in snake:
-        x = segment[0] * CELL_SIZE
-        y = segment[1] * CELL_SIZE
-        pygame.draw.rect(screen, GREEN, (x, y, CELL_SIZE, CELL_SIZE))
+    screen.blit(images["background"], (0, 0))
 
-    apple_x = apple[0] * CELL_SIZE
-    apple_y = apple[1] * CELL_SIZE
-    pygame.draw.rect(screen, RED, (apple_x, apple_y, CELL_SIZE, CELL_SIZE))
+    for obstacle in obstacles:
+        screen.blit(images["obstacle"], (obstacle[0] * CELL_SIZE, obstacle[1] * CELL_SIZE))
 
-    score_text = font.render("Score: " + str(score), True, WHITE)
-    screen.blit(score_text, (10, 10))
+    screen.blit(images["apple"], (apple[0] * CELL_SIZE, apple[1] * CELL_SIZE))
+
+    if golden is not None:
+        if golden_steps > 15 or golden_steps % 2 == 0:
+            screen.blit(images["golden_apple"], (golden[0] * CELL_SIZE, golden[1] * CELL_SIZE))
+
+    for i in range(1, len(snake)):
+        segment = snake[i]
+        ahead = snake[i - 1]
+        angle = get_angle(ahead[0] - segment[0], ahead[1] - segment[1])
+
+        if i == 1:
+            image = images["body1"]
+        elif i == len(snake) - 1:
+            image = images["tail"]
+        else:
+            image = images["body2"]
+
+        rotated_image = pygame.transform.rotate(image, angle)
+        screen.blit(rotated_image, (segment[0] * CELL_SIZE, segment[1] * CELL_SIZE))
+
+    mouth_open = False
+    for step in range(1, 3):
+        cell = (snake[0][0] + direction[0] * step, snake[0][1] + direction[1] * step)
+        if cell == apple or cell == golden:
+            mouth_open = True
+
+    if mouth_open:
+        head_image = images["head_open"]
+    else:
+        head_image = images["head"]
+
+    head_angle = get_angle(direction[0], direction[1])
+    rotated_head = pygame.transform.rotate(head_image, head_angle)
+    screen.blit(rotated_head, (snake[0][0] * CELL_SIZE, snake[0][1] * CELL_SIZE))
+
+    draw_text("Score: " + str(score), font, 10, 10)
+    draw_text("Best: " + str(high_score), font, 10, 40)
+
+    if paused:
+        draw_centered("Paused", big_font, HEIGHT // 2)
 
     if game_over:
-        over_text = big_font.render("Game Over", True, WHITE)
-        over_rect = over_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 - 20))
-        screen.blit(over_text, over_rect)
+        draw_centered("Game Over", big_font, HEIGHT // 2 - 20)
+        draw_centered("Press SPACE to restart", font, HEIGHT // 2 + 30)
 
-        restart_text = font.render("Press SPACE to restart", True, WHITE)
-        restart_rect = restart_text.get_rect(center=(WIDTH // 2, HEIGHT // 2 + 30))
-        screen.blit(restart_text, restart_rect)
+    speed = 10 + score // 3
+    if speed > 20:
+        speed = 20
 
     pygame.display.flip()
-    clock.tick(10)
+    clock.tick(speed)
 
 pygame.quit()
