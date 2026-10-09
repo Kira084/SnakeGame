@@ -19,6 +19,7 @@ pygame.display.set_caption("Snake")
 clock = pygame.time.Clock()
 font = pygame.font.SysFont("arial", 24)
 big_font = pygame.font.SysFont("arial", 48)
+small_font = pygame.font.SysFont("arial", 20)
 
 
 def load_image(theme_name, file_name):
@@ -47,9 +48,12 @@ nom_sound = pygame.mixer.Sound("assets/music/nom.mp3")
 
 
 def play_music(theme_name):
-    pygame.mixer.music.load(music_files[theme_name])
-    pygame.mixer.music.set_volume(0.4)
-    pygame.mixer.music.play(-1)
+    try:
+        pygame.mixer.music.load(music_files[theme_name])
+        pygame.mixer.music.set_volume(0.4)
+        pygame.mixer.music.play(-1)
+    except pygame.error:
+        print("Could not play music:", music_files[theme_name])
 
 
 def get_angle(dx, dy):
@@ -77,6 +81,13 @@ def draw_centered(text, text_font, center_y):
     label_rect = label.get_rect(center=(WIDTH // 2, center_y))
     screen.blit(shadow, shadow_rect)
     screen.blit(label, label_rect)
+
+
+def get_theme_hint():
+    if theme == "normal":
+        return "Press T to switch to the neon theme"
+    else:
+        return "Press T to switch to the normal theme"
 
 
 def get_free_cell():
@@ -121,6 +132,8 @@ direction = (1, 0)
 score = 0
 game_over = False
 paused = False
+started = False
+button_rect = pygame.Rect(WIDTH // 2 - 100, HEIGHT // 2 - 15, 200, 60)
 high_score = load_high_score()
 obstacles = make_obstacles()
 apple = None
@@ -133,8 +146,11 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+        if event.type == pygame.MOUSEBUTTONDOWN:
+            if not started and button_rect.collidepoint(event.pos):
+                started = True
         if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_t:
+            if event.scancode == pygame.KSCAN_T:
                 if theme == "normal":
                     theme = "neon"
                 else:
@@ -144,7 +160,10 @@ while running:
                 if paused:
                     pygame.mixer.music.pause()
 
-            if game_over:
+            if not started:
+                if event.key == pygame.K_SPACE or event.key == pygame.K_RETURN:
+                    started = True
+            elif game_over:
                 if event.key == pygame.K_SPACE:
                     snake = [(12, 9), (11, 9), (10, 9)]
                     direction = (1, 0)
@@ -154,7 +173,7 @@ while running:
                     score = 0
                     game_over = False
             else:
-                if event.key == pygame.K_p:
+                if event.scancode == pygame.KSCAN_P:
                     paused = not paused
                     if paused:
                         pygame.mixer.music.pause()
@@ -169,7 +188,7 @@ while running:
                 if event.key == pygame.K_RIGHT and direction != (-1, 0):
                     direction = (1, 0)
 
-    if not game_over and not paused:
+    if started and not game_over and not paused:
         head_x = snake[0][0] + direction[0]
         head_y = snake[0][1] + direction[1]
 
@@ -255,6 +274,28 @@ while running:
     if game_over:
         draw_centered("Game Over", big_font, HEIGHT // 2 - 20)
         draw_centered("Press SPACE to restart", font, HEIGHT // 2 + 30)
+
+    if not started:
+        overlay = pygame.Surface((WIDTH, HEIGHT))
+        overlay.set_alpha(150)
+        overlay.fill(BLACK)
+        screen.blit(overlay, (0, 0))
+
+        draw_centered("SNAKE", big_font, HEIGHT // 2 - 90)
+
+        if button_rect.collidepoint(pygame.mouse.get_pos()):
+            button_color = (120, 230, 150)
+        else:
+            button_color = (80, 200, 120)
+        pygame.draw.rect(screen, button_color, button_rect, border_radius=12)
+        play_label = font.render("PLAY", True, BLACK)
+        screen.blit(play_label, play_label.get_rect(center=button_rect.center))
+
+        draw_centered("Click PLAY or press SPACE", small_font, HEIGHT // 2 + 65)
+        draw_centered("Arrow keys - move", small_font, HEIGHT // 2 + 95)
+        draw_centered("P - pause", small_font, HEIGHT // 2 + 120)
+
+    draw_centered(get_theme_hint(), small_font, HEIGHT - 20)
 
     speed = 10 + score // 3
     if speed > 20:
