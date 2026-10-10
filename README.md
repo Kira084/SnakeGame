@@ -8,7 +8,7 @@ A Snake game made with Python and pygame-ce, featuring hand-drawn graphics, two 
 # Features
 
 - Classic Snake gameplay on a grid with a start menu
-- Two hand-drawn themes: normal** and *neon*, each with its own music
+- Two hand-drawn themes: *normal* and *neon*, each with its own music
 - The snake opens its mouth when an apple is two cells ahead
 - Golden apple: gives 5 points and disappears after a few seconds
 - Random obstacles in every round
