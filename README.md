@@ -5,7 +5,7 @@ A Snake game made with Python and pygame-ce, featuring hand-drawn graphics, two 
 Also available as a browser version written in JavaScript: [SnakeGame-Web](https://github.com/Kira084/SnakeGame-Web) (play it [here](https://kira084.github.io/SnakeGame-Web/)).
 
 ## Screenshots
-![Day theme](screenshots/normal.png) | ![Neon theme](screenshots/neon.png)
+[Day theme](screenshots/normal.png) | [Neon theme](screenshots/neon.png)
 
 ## Features
 
